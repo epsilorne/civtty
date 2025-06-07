@@ -1,3 +1,4 @@
+#include <iso646.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -7,10 +8,16 @@
 #include <unistd.h>
 
 #include "render.h"
+#include "util.h"
 
+// Position/offset of the image in the buffer
 int offset_x = 0;
 int offset_y = 0;
 
+// If holding SHIFT, how much faster to move the image?
+const int MOVE_MULTIPLIER = 3;
+
+// Displayed buffer dimensions
 uint8_t ROWS;
 uint8_t COLS;
 
@@ -22,6 +29,9 @@ image* CURR_IMAGE;
 char ANSI_BUFFER[25];
 const char* CLEAR_ANSI = "\033[0m";
 const char* BLOCK = "▀";
+
+// Keep track of original terminal state
+struct termios original;
 
 int idx(int y, int x) {
   return y * COLS + x;
@@ -41,6 +51,11 @@ void init_buffer(image* img) {
   // Allocate memory for the buffer
   PIX_BUFFER = calloc(COLS * ROWS, sizeof(pixel));
   CURR_IMAGE = img;
+
+  // Save the original terminal state struct
+  if(tcgetattr(STDIN_FILENO, &original) == -1){
+    perror("tcgetattr");
+  }
 }
 
 /**
@@ -103,12 +118,51 @@ void draw_buffer(void) {
   offset_image();
 
   // Iterate y-axis for every other row (since we draw two at a time)
-  for(int y = 0; y < ROWS; y += 2) {
-    for(int x = 0; x < COLS; ++x) {
+  for(int y = 0; y < ROWS; y += 2) { for(int x = 0; x < COLS; ++x) {
       draw_pixel(x, y);
     }
   }
   fflush(stdout);
+}
+
+/**
+ * Input loop to handle movement and quitting. Expects a raw terminal.
+ */
+void input_loop(void) {
+  char hit;
+  while((hit = getchar()) != 'q') {
+    switch(hit) {
+      case 'j':
+        offset_y--;
+        break;
+      case 'k':
+        offset_y++;
+        break;
+      case 'h':
+        offset_x++;
+        break;
+      case 'l':
+        offset_x--;
+        break;
+
+      case 'J':
+        offset_y -= MOVE_MULTIPLIER;
+        break;
+      case 'K':
+        offset_y += MOVE_MULTIPLIER;
+        break;
+      case 'H':
+        offset_x += MOVE_MULTIPLIER;
+        break;
+      case 'L':
+        offset_x -= MOVE_MULTIPLIER;
+        break;
+      default:
+        printf("%c",hit);
+        break;
+    }
+    draw_buffer();
+  }
 }
 
 /**
@@ -117,8 +171,12 @@ void draw_buffer(void) {
 void do_rendering(image* img) {
   init_buffer(img);
 
-  // TODO: input loop to update positions or quit
+  enter_raw_mode(original);
   draw_buffer();
+
+  input_loop();
+
+  exit_raw_mode(original);
 
   // Once done, clean up all allocated memory
   free(img->pixels);
