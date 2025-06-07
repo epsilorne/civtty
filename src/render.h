@@ -1,11 +1,22 @@
 #include <stdint.h>
 
-int init_buffer(void);
-void render_buffer(void);
-void cleanup_buffer(void);
+#ifndef RENDER_H
+#define RENDER_H
 
 typedef struct {
-  uint8_t r;
-  uint8_t g;
-  uint8_t b;
+  unsigned char r;
+  unsigned char g;
+  unsigned char b;
 } pixel;
+
+typedef struct {
+  int width;
+  int height;
+  pixel* pixels;
+} image;
+
+#endif
+
+int init_buffer(image*);
+void render_buffer(void);
+void cleanup_buffer(void);

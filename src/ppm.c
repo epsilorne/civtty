@@ -1,6 +1,7 @@
 #include "ppm.h"
 #include "util.h"
 
+#include <ctype.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
@@ -60,7 +61,7 @@ image* parse_ppm(char* path) {
 
   // For an ASCII image, we continually read three white-spaced numbers
   if(ascii_format) {
-    while(px_idx < width * height) {
+    while(px_idx < (width * height) - 1) {
       unsigned char r = (unsigned char) strtol(pos, &end, 10);
       pos = end;
       
@@ -76,18 +77,20 @@ image* parse_ppm(char* path) {
   }
   // For a byte image, we just read the next three bytes
   else {
-    // int file_idx = 0; 
-    // while(px_idx < (width * height)) {      
-    //   img->pixels[px_idx] = (pixel)
-    //                       {
-    //                         tokens[file_idx],
-    //                         tokens[file_idx + 1],
-    //                         tokens[file_idx + 2]
-    //                       };
-    //
-    //   px_idx++;
-    //   file_idx += 3;
-    // }
+    int file_idx = 0;
+    while(isspace(pos[file_idx])) {
+      file_idx++;
+    }
+
+    while(px_idx < (width * height) - 1) {
+      unsigned char r = pos[file_idx];
+      unsigned char g = pos[file_idx + 1];
+      unsigned char b = pos[file_idx + 2];
+      img->pixels[px_idx] = (pixel) {r, g, b};
+      px_idx++;
+
+      file_idx += 3;
+    }
   }
 
   clear_file(file);
