@@ -6,6 +6,9 @@
 #include <string.h>
 #include <stdint.h>
 
+/**
+ * Load a file and store it in memory as a loaded_file.
+ */
 loaded_file* load_file(char* path) {
   FILE* fptr;
 
@@ -34,6 +37,9 @@ loaded_file* load_file(char* path) {
   return file;
 }
 
+/**
+ * Clear up a loaded_file from memory.
+ */
 void clear_file(loaded_file* file) {
   free(file->contents);
   free(file);

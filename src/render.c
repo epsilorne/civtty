@@ -14,18 +14,23 @@ int offset_y = 0;
 uint8_t ROWS;
 uint8_t COLS;
 
-pixel* IMAGE_BUFFER;
-image* IMAGE;
+// Buffers for image file + displayed stuff
+pixel* PIX_BUFFER;
+image* CURR_IMAGE;
 
+// Related to actually displaying on screen
+char ANSI_BUFFER[25];
 const char* CLEAR_ANSI = "\033[0m";
 const char* BLOCK = "▀";
-char BLOCK_BUFFER[25];
 
 int idx(int y, int x) {
   return y * COLS + x;
 }
 
-int init_buffer(image* img) {
+/**
+ * Allocate memory for the pixel buffer.
+ */
+void init_buffer(image* img) {
   struct winsize w;
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
   
@@ -34,40 +39,33 @@ int init_buffer(image* img) {
   COLS = w.ws_col;
 
   // Allocate memory for the buffer
-  IMAGE_BUFFER = calloc(COLS * ROWS, sizeof(pixel));
-  IMAGE = img;
-
-  // Populate with values from image
-  int pixel_idx = 0;
-  for(int y = 0; y < ROWS; ++y) {
-    for(int x = 0; x < COLS; ++x) {
-      if(x < IMAGE->width && y < IMAGE->height) {
-        IMAGE_BUFFER[idx(y, x)] = IMAGE->pixels[pixel_idx];
-        pixel_idx++;
-      }
-    }
-  }
-
-  return 0;
+  PIX_BUFFER = calloc(COLS * ROWS, sizeof(pixel));
+  CURR_IMAGE = img;
 }
 
 /**
- * Given a pixel, generate the ANSI code to render a BLOCK.
+ * Given a pixel, generate the ANSI code to render a BLOCK in the
+ * pixel's colour.
  */
 char* generate_ansi(pixel px, bool fg) {
-  snprintf(BLOCK_BUFFER, 25, "\033[%i;2;%i;%i;%im", fg == true ? 38 : 48, px.r, px.g, px.b);
-  return BLOCK_BUFFER;
+  snprintf(ANSI_BUFFER, 25, "\033[%i;2;%i;%i;%im", fg == true ? 38 : 48,
+                                                   px.r, px.g, px.b);
+  return ANSI_BUFFER;
 }
 
+/**
+ * Draw an individual pixel on the buffer. Assumes the coordinates to
+ * be on-screen.
+ */
 void draw_pixel(int x, int y) {
-  pixel px = IMAGE_BUFFER[idx(y, x)];
+  pixel px = PIX_BUFFER[idx(y, x)];
 
   char *ansi_fg = generate_ansi(px, 1);
   fputs(ansi_fg, stdout);
   
   // If not at the last row, we can also draw the pixel below 
   if(y != ROWS - 1) {
-    pixel px_below = IMAGE_BUFFER[idx(y + 1, x)];
+    pixel px_below = PIX_BUFFER[idx(y + 1, x)];
     char *ansi_bg = generate_ansi(px_below, 0);
     fputs(ansi_bg, stdout);
   }
@@ -82,22 +80,26 @@ void draw_pixel(int x, int y) {
 void offset_image() {
   int pixel_idx = 0;
 
-  for(int y = 0; y < IMAGE->height; ++y) {
-    for(int x = 0; x < IMAGE->width; ++x) {
+  for(int y = 0; y < CURR_IMAGE->height; ++y) {
+    for(int x = 0; x < CURR_IMAGE->width; ++x) {
       int offset_idx = idx(y + offset_y, x + offset_x);
-      // TODO: refactor this is disguisting
-      if(x + offset_x < 0 || x + offset_x >= COLS || y + offset_y < 0 || y + offset_y >= ROWS) {
-      }
-      else if(offset_idx >= 0 && offset_idx < COLS * ROWS) {
-        IMAGE_BUFFER[offset_idx] = IMAGE->pixels[pixel_idx];
-      }
+      bool within_bounds = x + offset_x >= 0 &&
+         x + offset_x < COLS &&
+         y + offset_y >= 0 &&
+         y + offset_y < ROWS;
+
+      if(within_bounds) {
+        PIX_BUFFER[offset_idx] = CURR_IMAGE->pixels[pixel_idx]; }
       pixel_idx++;
     }
   }
 }
 
-void update_buffer(void) {
-  memset(IMAGE_BUFFER, 0, sizeof(pixel) * COLS * ROWS);
+/**
+ * Display the contents of the buffer on screen.
+ */
+void draw_buffer(void) {
+  memset(PIX_BUFFER, 0, sizeof(pixel) * COLS * ROWS);
   offset_image();
 
   // Iterate y-axis for every other row (since we draw two at a time)
@@ -109,6 +111,17 @@ void update_buffer(void) {
   fflush(stdout);
 }
 
-void cleanup_buffer(void) {
-  free(IMAGE_BUFFER);
+/**
+ * Main functional loop; given an image, display it and allow for movement.
+ */
+void do_rendering(image* img) {
+  init_buffer(img);
+
+  // TODO: input loop to update positions or quit
+  draw_buffer();
+
+  // Once done, clean up all allocated memory
+  free(img->pixels);
+  free(img);
+  free(PIX_BUFFER);
 }

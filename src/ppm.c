@@ -96,8 +96,3 @@ image* parse_ppm(char* path) {
   clear_file(file);
   return img;
 }
-
-void clear_image(image* img) {
-  free(img->pixels);
-  free(img);
-}

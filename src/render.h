@@ -17,6 +17,4 @@ typedef struct {
 
 #endif
 
-int init_buffer(image*);
-void update_buffer(void);
-void cleanup_buffer(void);
+void do_rendering(image*);

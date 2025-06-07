@@ -19,10 +19,8 @@ int main(int argc, char *argv[]) {
   if((img = parse_ppm(argv[1])) == NULL) {
     return 1;
   }
-  init_buffer(img);
-  update_buffer();
 
-  cleanup_buffer();
-  clear_image(img);
+  do_rendering(img);
+
   return 0;
 }
