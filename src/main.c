@@ -15,9 +15,12 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  image* img = parse_ppm(argv[1]);
+  image* img = NULL;
+  if((img = parse_ppm(argv[1])) == NULL) {
+    return 1;
+  }
   init_buffer(img);
-  render_buffer();
+  update_buffer();
 
   cleanup_buffer();
   clear_image(img);

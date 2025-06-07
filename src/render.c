@@ -1,16 +1,21 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <stdio.h>
 #include <unistd.h>
 
 #include "render.h"
 
+int offset_x = 0;
+int offset_y = 0;
+
 uint8_t ROWS;
 uint8_t COLS;
 
 pixel* IMAGE_BUFFER;
+image* IMAGE;
 
 const char* CLEAR_ANSI = "\033[0m";
 const char* BLOCK = "▀";
@@ -20,7 +25,7 @@ int idx(int y, int x) {
   return y * COLS + x;
 }
 
-int init_buffer(image* IMAGE) {
+int init_buffer(image* img) {
   struct winsize w;
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
   
@@ -29,19 +34,16 @@ int init_buffer(image* IMAGE) {
   COLS = w.ws_col;
 
   // Allocate memory for the buffer
-  IMAGE_BUFFER = malloc(sizeof(pixel) * COLS * ROWS);
+  IMAGE_BUFFER = calloc(COLS * ROWS, sizeof(pixel));
+  IMAGE = img;
 
   // Populate with values from image
-  // TODO: allow for movement
   int pixel_idx = 0;
   for(int y = 0; y < ROWS; ++y) {
     for(int x = 0; x < COLS; ++x) {
       if(x < IMAGE->width && y < IMAGE->height) {
         IMAGE_BUFFER[idx(y, x)] = IMAGE->pixels[pixel_idx];
         pixel_idx++;
-      }
-      else {
-        IMAGE_BUFFER[idx(y, x)] = (pixel) {0, 0, 0};
       }
     }
   }
@@ -74,13 +76,35 @@ void draw_pixel(int x, int y) {
   fputs(CLEAR_ANSI, stdout);
 }
 
-void render_buffer(void) {
+/*
+ * Apply positional offsets to the image within the buffer.
+ */
+void offset_image() {
+  int pixel_idx = 0;
+
+  for(int y = 0; y < IMAGE->height; ++y) {
+    for(int x = 0; x < IMAGE->width; ++x) {
+      int offset_idx = idx(y + offset_y, x + offset_x);
+      // TODO: refactor this is disguisting
+      if(x + offset_x < 0 || x + offset_x >= COLS || y + offset_y < 0 || y + offset_y >= ROWS) {
+      }
+      else if(offset_idx >= 0 && offset_idx < COLS * ROWS) {
+        IMAGE_BUFFER[offset_idx] = IMAGE->pixels[pixel_idx];
+      }
+      pixel_idx++;
+    }
+  }
+}
+
+void update_buffer(void) {
+  memset(IMAGE_BUFFER, 0, sizeof(pixel) * COLS * ROWS);
+  offset_image();
+
   // Iterate y-axis for every other row (since we draw two at a time)
   for(int y = 0; y < ROWS; y += 2) {
     for(int x = 0; x < COLS; ++x) {
       draw_pixel(x, y);
     }
-    putchar('\n');
   }
   fflush(stdout);
 }
